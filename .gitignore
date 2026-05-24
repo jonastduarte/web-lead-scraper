@@ -1,0 +1,41 @@
+# Dependências
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Banco de dados local (dados pessoais - não versionar)
+*.db
+*.db-shm
+*.db-wal
+leads.db
+backend/leads.db
+
+# Arquivos de dados e backups
+leads.json
+leads_backup.json
+leads_export.*
+leads_report.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build do frontend (gerado pelo vite build)
+frontend/dist/
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.production
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Testes temporários
+backend/test_*.mjs
+backend/test_*.js
