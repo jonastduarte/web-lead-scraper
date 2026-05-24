@@ -1,5 +1,7 @@
 // Puppeteer B2B Scraper & Brand Diagnostic Engine - G-Maps Scraper Web App
 import puppeteer from 'puppeteer';
+import fs from 'fs';
+
 
 // Helper function to sleep
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -350,8 +352,9 @@ export const runScrape = async (niche, location, limit = 50, onProgress, onLead,
 
   try {
     log(`[Robô] Inicializando Puppeteer Chromium...`);
-    browser = await puppeteer.launch({
-      headless: true, // headless browser runs fully in background!
+    
+    let launchOptions = {
+      headless: true,
       args: [
         '--no-sandbox', 
         '--disable-setuid-sandbox',
@@ -362,7 +365,58 @@ export const runScrape = async (niche, location, limit = 50, onProgress, onLead,
         '--single-process', // lower memory usage
         '--disable-gpu'
       ]
-    });
+    };
+
+    // System-wide paths for Chromium/Chrome on Linux/Unix
+    const possibleSystemPaths = [
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome-unstable'
+    ];
+
+    let foundSystemPath = null;
+    for (const sysPath of possibleSystemPaths) {
+      try {
+        if (fs.existsSync(sysPath)) {
+          foundSystemPath = sysPath;
+          break;
+        }
+      } catch (e) {
+        // Ignore errors checking paths
+      }
+    }
+
+    if (process.arch === 'arm64' || process.arch === 'arm') {
+      log(`[Robô] Detectada arquitetura ARM/ARM64 (${process.arch}).`);
+      if (foundSystemPath) {
+        log(`[Robô] Redirecionando Puppeteer para usar o Chromium nativo do sistema: ${foundSystemPath}`);
+        launchOptions.executablePath = foundSystemPath;
+      } else {
+        log(`[Robô] AVISO: Executando em ARM, mas nenhuma instalação nativa do Chromium foi encontrada nos caminhos padrão.`);
+      }
+    }
+
+    try {
+      browser = await puppeteer.launch(launchOptions);
+    } catch (launchErr) {
+      log(`[Robô] Falha crítica ao iniciar com o Chromium padrão do Puppeteer: ${launchErr.message}`);
+      if (foundSystemPath && launchOptions.executablePath !== foundSystemPath) {
+        log(`[Robô] [Auto-Heal] Tentando recuperar usando o Chromium nativo detectado em: ${foundSystemPath}...`);
+        try {
+          launchOptions.executablePath = foundSystemPath;
+          browser = await puppeteer.launch(launchOptions);
+          log(`[Robô] [Auto-Heal] Recuperado com sucesso! Puppeteer rodando via Chromium do sistema.`);
+        } catch (retryErr) {
+          log(`[Robô] [Auto-Heal] Falha ao iniciar também com Chromium do sistema: ${retryErr.message}`);
+          throw launchErr;
+        }
+      } else {
+        throw launchErr;
+      }
+    }
+
 
     activeTab = await browser.newPage();
     await activeTab.setViewport({ width: 1200, height: 900 });
